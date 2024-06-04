@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tensor Tools</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #f7f9fc;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            height: 100vh;
+        }
+        .sidebar {
+            width: 250px;
+            background-color: #007BFF;
+            color: white;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+        .sidebar h2 {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .sidebar ul {
+            list-style: none;
+            padding: 0;
+            flex-grow: 1;
+        }
+        .sidebar ul li {
+            margin: 20px 0;
+        }
+        .sidebar ul li a {
+            color: white;
+            text-decoration: none;
+            font-size: 18px;
+            display: block;
+            transition: background-color 0.3s ease;
+        }
+        .sidebar ul li a:hover {
+            background-color: #0056b3;
+            padding-left: 10px;
+        }
+        .content {
+            flex-grow: 1;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: #f7f9fc;
+        }
+        .container {
+            background-color: #ffffff;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            padding: 20px;
+            max-width: 800px;
+            width: 100%;
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 20px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #666;
+        }
+        .form-group input[type="file"],
+        .form-group select,
+        .form-group button,
+        .form-group textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        .form-group button {
+            background-color: #007BFF;
+            color: white;
+            border: none;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+        .form-group button:hover {
+            background-color: #0056b3;
+        }
+        .form-group textarea {
+            resize: vertical;
+        }
+        .charts {
+            display: flex;
+            justify-content: space-between;
+        }
+        .chart-container {
+            width: 45%;
+        }
+        .collapsible {
+            background-color: #007BFF;
+            color: white;
+            cursor: pointer;
+            padding: 10px;
+            width: 100%;
+            border: none;
+            text-align: center;
+            outline: none;
+            font-size: 15px;
+            margin-top: 10px;
+        }
+        .active, .collapsible:hover {
+            background-color: #0056b3;
+        }
+        .collapsible-content {
+            padding: 0 18px;
+            display: none;
+            overflow: hidden;
+            background-color: #f1f1f1;
+            margin-bottom: 10px;
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div class="sidebar">
+        <h2>Tensor Tools</h2>
+        <ul>
+            <li><a href="#" onclick="showPage('decomposition')">稀疏张量典范分解</a></li>
+            <li><a href="#" onclick="showPage('completion')">稀疏张量补全</a></li>
+            <!-- <li><a href="#" onclick="showPage('nn_decomposition')">应用案例</a></li> -->
+        </ul>
+    </div>
+    <div class="content">
+        <div id="decomposition" class="container">
+            <h1>稀疏张量典范分解</h1>
+            <div class="form-group">
+                <label for="tensor-file">导入张量</label>
+                <input type="file" id="tensor-file">
+            </div>
+            <div class="form-group">
+                <label for="algorithm">选择迭代类型</label>
+                <select id="algorithm">
+                    <option value="als">ALS</option>
+                    <option value="gd">GD</option>
+                    <option value="sgd">SGD</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="tensor-index">选择分解秩</label>
+                <select id="tensor-index">
+                    <option value="4">4</option>
+                    <option value="16">16</option>
+                    <option value="64" selected>64</option>
+                    <option value="256">256</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <button onclick="performDecomposition()">执行分解</button>
+            </div>
+            <button type="button" class="collapsible">结果展示</button>
+            <div class="collapsible-content">
+                <br> <!-- Add a line break to create space -->
+                <div class="form-group">
+                    <label for="result">结果</label>
+                    <textarea id="result" rows="1" readonly></textarea>
+                </div>
+                <br> <!-- Add a line break to create space -->
+                <div class="form-group">
+                    <!-- <label for="factor-matrix">Factor Matrix Export:</label> -->
+                    <button onclick="exportFactorMatrix()">因子矩阵导出</button>
+                </div>
+                <div class="charts">
+                    <div class="chart-container">
+                        <label for="speedup-fcoo-chart">Speedup vs. F-COO:</label>
+                        <canvas id="speedup-fcoo-chart"></canvas>
+                    </div>
+                    <div class="chart-container">
+                        <label for="speedup-mmcsf-chart">Speedup vs. MM-CSF:</label>
+                        <canvas id="speedup-mmcsf-chart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="completion" class="container" style="display: none;">
+            <h1>稀疏张量补全</h1>
+            <div class="form-group">
+                <label for="completion-tensor-file">导入张量</label>
+                <input type="file" id="completion-tensor-file">
+            </div>
+            <div class="form-group">
+                <label for="completion-algorithm">选择迭代类型</label>
+                <select id="completion-algorithm">
+                    <option value="als">ALS</option>
+                    <option value="gd">GD</option>
+                    <option value="sgd">SGD</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="completion-rank">选择补全秩</label>
+                <select id="completion-rank">
+                    <option value="4">4</option>
+                    <option value="16">16</option>
+                    <option value="64" selected>64</option>
+                    <option value="256">256</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <button onclick="performCompletion()">执行补全</button>
+            </div>
+            <button type="button" class="collapsible">结果展示</button>
+            <div class="collapsible-content">
+                <br> <!-- Add a line break to create space -->
+                <div class="form-group">
+                    <label for="completion-result">结果</label>
+                    <textarea id="completion-result" rows="1" readonly></textarea>
+                </div>
+                <br> <!-- Add a line break to create space -->
+                <div class="form-group">
+                    <!-- <label for="factor-matrix">Factor Matrix Export:</label> -->
+                    <button onclick="exportCompletedTensor()">补全张量导出</button>
+                </div>
+                <div class="charts">
+                    <div class="chart-container">
+                        <label for="completion-speedup-fcoo-chart">Speedup vs. F-COO:</label>
+                        <canvas id="completion-speedup-fcoo-chart"></canvas>
+                    </div>
+                    <div class="chart-container">
+                        <label for="completion-speedup-mmcsf-chart">Speedup vs. MM-CSF:</label>
+                        <canvas id="completion-speedup-mmcsf-chart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script>
+        function showPage(page) {
+            const pages = ['decomposition', 'completion', 'nn_decomposition'];
+            pages.forEach(p => {
+                document.getElementById(p).style.display = p === page ? 'block' : 'none';
+            });
+
+            // Show initial charts on page load
+            if (page === 'decomposition') {
+                const initialSpeedupFCOOData = {
+                    labels: ['Dimension-1', 'Dimension-2', 'Dimension-3'],
+                    data: [1.15, 2.7, 2.0]
+                };
+                const initialSpeedupMMCSFData = {
+                    labels: ['Dimension-1', 'Dimension-2', 'Dimension-3'],
+                    data: [1.2, 1.4, 2.6]
+                };
+                updateChart('speedup-fcoo-chart', initialSpeedupFCOOData.labels, initialSpeedupFCOOData.data, 'Speedup vs. F-COO');
+                updateChart('speedup-mmcsf-chart', initialSpeedupMMCSFData.labels, initialSpeedupMMCSFData.data, 'Speedup vs. MM-CSF');
+            } else if (page === 'completion') {
+                const initialSpeedupFCOOData = {
+                    labels: ['Dimension-1', 'Dimension-2', 'Dimension-3'],
+                    data: [1.1, 1.7, 2.0]
+                };
+                const initialSpeedupMMCSFData = {
+                    labels: ['Dimension-1', 'Dimension-2', 'Dimension-3'],
+                    data: [1.2, 1.4, 1.6]
+                };
+                updateChart('completion-speedup-fcoo-chart', initialSpeedupFCOOData.labels, initialSpeedupFCOOData.data, 'Speedup vs. F-COO');
+                updateChart('completion-speedup-mmcsf-chart', initialSpeedupMMCSFData.labels, initialSpeedupMMCSFData.data, 'Speedup vs. MM-CSF');
+            } else if (page === 'nn_decomposition') {
+                const initialAccuracyData = {
+                    labels: [4, 16, 64, 256],
+                    data: [0.75, 0.82, 0.88, 0.91]
+                };
+                const initialCompressionData = {
+                    labels: [4, 16, 64, 256],
+                    data: [40, 30, 20, 10]
+                };
+                updateChart('nn-accuracy-chart', initialAccuracyData.labels, initialAccuracyData.data, 'Accuracy Comparison');
+                updateChart('nn-compression-chart', initialCompressionData.labels, initialCompressionData.data, 'Model Compression Comparison');
+            }
+        }
+
+        function performDecomposition() {
+            const tensorFile = document.getElementById('tensor-file').files[0];
+            const algorithm = document.getElementById('algorithm').value;
+            const tensorIndex = document.getElementById('tensor-index').value;
+
+            if (!tensorFile || !algorithm || !tensorIndex) {
+                alert("Please fill out all fields.");
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('tensor', tensorFile);
+            formData.append('algorithm', algorithm);
+            formData.append('tensorIndex', tensorIndex);
+
+            fetch('/decompose', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('result').value = "Decomposition completed. Factor matrix ready for export.";
+                updateChart('speedup-fcoo-chart', data.speedupFCOO.labels, data.speedupFCOO.data, 'Speedup vs. F-COO');
+                updateChart('speedup-mmcsf-chart', data.speedupMMCSF.labels, data.speedupMMCSF.data, 'Speedup vs. MM-CSF');
+                document.querySelector('#decomposition .collapsible-content').style.display = 'block';
+            })
+            .catch(error => {
+                console.error('Error:', error);
+            });
+        }
+
+        function exportFactorMatrix() {
+            fetch('/download-factor-matrix')
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+                    return response.blob();
+                })
+                .then(blob => {
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = 'factor_matrix.json'; // Set the desired file name
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                })
+                .catch(error => {
+                    console.error('There was a problem with the fetch operation:', error);
+                });
+        }
+
+        function performCompletion() {
+            const tensorFile = document.getElementById('completion-tensor-file').files[0];
+            const algorithm = document.getElementById('completion-algorithm').value;
+            const rank = document.getElementById('completion-rank').value;
+
+            if (!tensorFile || !algorithm || !rank) {
+                alert("Please fill out all fields.");
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('tensor', tensorFile);
+            formData.append('algorithm', algorithm);
+            formData.append('rank', rank);
+
+            fetch('/complete', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('completion-result').value = "Completion completed. Tensor' ready for export.";
+                updateChart('completion-speedup-fcoo-chart', data.speedupFCOO.labels, data.speedupFCOO.data, 'Speedup vs. F-COO');
+                updateChart('completion-speedup-mmcsf-chart', data.speedupMMCSF.labels, data.speedupMMCSF.data, 'Speedup vs. MM-CSF');
+                document.querySelector('#completion .collapsible-content').style.display = 'block';
+            })
+            .catch(error => {
+                console.error('Error:', error);
+            });
+        }
+
+        function exportCompletedTensor(){
+            fetch('/download-completed-tensor')
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+                    return response.blob();
+                })
+                .then(blob => {
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = 'completed_tensor.json'; // Set the desired file name
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                })
+                .catch(error => {
+                    console.error('There was a problem with the fetch operation:', error);
+                });
+        }
+
+        function performNNDecomposition() {
+            const tensorFile = document.getElementById('nn-tensor-file').files[0];
+            const algorithm = document.getElementById('nn-algorithm').value;
+            const rank = document.getElementById('nn-rank').value;
+
+            if (!tensorFile || !algorithm || !rank) {
+                alert("Please fill out all fields.");
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('tensor', tensorFile);
+            formData.append('algorithm', algorithm);
+            formData.append('rank', rank);
+
+            fetch('/nn_decompose', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                updateChart('nn-accuracy-chart', data.accuracy.labels, data.accuracy.data, 'Accuracy Comparison');
+                updateChart('nn-compression-chart', data.compression.labels, data.compression.data, 'Model Compression Comparison');
+                document.querySelector('#nn_decomposition .collapsible-content').style.display = 'block';
+            })
+            .catch(error => {
+                console.error('Error:', error);
+            });
+        }
+
+        function exportModel() {
+            fetch('/export_model', {
+                method: 'POST'
+            })
+            .then(response => response.blob())
+            .then(blob => {
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.style.display = 'none';
+                a.href = url;
+                a.download = 'model.zip';
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+            })
+            .catch(error => {
+                console.error('Error:', error);
+            });
+        }
+
+        function updateChart(chartId, labels, data, title) {
+            const ctx = document.getElementById(chartId).getContext('2d');
+            new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: title,
+                        data: data,
+                        borderColor: 'rgba(75, 192, 192, 1)',
+                        borderWidth: 2,
+                        fill: false
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            const coll = document.getElementsByClassName("collapsible");
+            for (let i = 0; i < coll.length; i++) {
+                coll[i].addEventListener("click", function() {
+                    this.classList.toggle("active");
+                    const content = this.nextElementSibling;
+                    if (content.style.display === "block") {
+                        content.style.display = "none";
+                    } else {
+                        content.style.display = "block";
+                    }
+                });
+            }
+            showPage('decomposition');
+        });
+    </script>
+</body>
+</html>
